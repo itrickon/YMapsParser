@@ -49,44 +49,57 @@ class YMapsParse:
             a = "-".join(a.split())
             return a.lower()
 
-    async def __get_links(self) -> List[str]:
+    async def __get_links(self, update_callback=None) -> List[str]:
         """Извлекаем ссылки на организации, находящиеся на странице"""
         print("Собираем ссылки на организации с текущей страницы...")
         self.list_of_companies = []
 
         try:
-            max_scrolls = 100  # защита от бесконечного цикла
-            scroll_count = 0
+            container = await self.page.wait_for_selector(".scroll__container", timeout=5000)
 
-            while scroll_count < max_scrolls:
-                # Ждем появления контейнера
-                container = await self.page.wait_for_selector(".scroll__container", timeout=5000)
-                # Проверяем, достигли ли мы нужного количества фирм
-                if len(self.list_of_companies) >= self.max_num_firm:
-                    print(f"Достигнут лимит в {self.max_num_firm} фирм")
+            previous_count = 0
+            max_scrolls = 50
+
+            for _ in range(max_scrolls):
+
+                # Получаем текущее количество карточек
+                elements = await self.page.query_selector_all(".link-wrapper")
+                current_count = len(elements)
+
+                print(f"Найдено карточек: {current_count}")
+
+                # Если достигли лимита
+                if current_count >= self.max_num_firm:
+                    print("Достигнут лимит фирм")
                     break
-                is_visible = await self.page.is_visible(".add-business-view")
-                if is_visible:
-                    print("Элемент найден!")
+
+                # Если новые карточки не загружаются — прекращаем
+                if current_count == previous_count:
+                    print("Новые карточки больше не загружаются")
                     break
 
-                # Скроллим контейнер вниз
-                await container.evaluate("el => el.scrollBy(0, el.clientHeight)")
+                previous_count = current_count
 
-                # Ждем подгрузки контента
-                await self.page.wait_for_timeout(1000)  # 1 секунда
+                # Скроллим вниз
+                await container.evaluate("el => el.scrollBy(0, el.scrollHeight)")
+                await self.page.wait_for_timeout(1500)
 
-                found_links = await self.page.eval_on_selector_all(".link-wrapper", "elements => elements.map(el => el.href)")
-            print(len(found_links))
-            for link in found_links:
-                link = link.rstrip("/gallery/")  # Делаем полное url
-                print(link)
-                if self.ws.max_row + len(self.list_of_companies) - 1 >= self.max_num_firm:
-                    break
-                firm_data = await self.__get_firm_data(url=link)  # Ищем все данные фирмы
+            # После завершения скролла получаем финальный список ссылок
+            links = await self.page.eval_on_selector_all(
+                ".link-wrapper",
+                "elements => elements.map(el => el.href)"
+            )
+
+            for link in links[:self.max_num_firm]:
+                link = link.rstrip("/gallery/")
+                firm_data = await self.__get_firm_data(url=link)
+
                 if self.phone_text != "---" or (
-                    self.phone_text == "---" and self.site_text != "Нет ссылки на сайт"):
-                    self.list_of_companies.append(firm_data)  # Добавляем в список, который потом пойдет в xlsx
+                    self.phone_text == "---" and self.site_text != "Нет ссылки на сайт"
+                ):
+                    self.list_of_companies.append(firm_data)
+                if update_callback:
+                        update_callback(firm_data[1:-1])
 
         except PlaywrightTimeoutError:
             print("Контейнер не найден")
@@ -206,8 +219,6 @@ class YMapsParse:
         # Сохранить файл
         self.wb.save(self.data_saving)
         firm_data_list = list(map(lambda x: x[1:-1], self.list_of_companies))
-        if update_callback:
-            update_callback(*firm_data_list)
         print(f"Записано {len(get_firm_data)} строк в файл data.xlsx")
 
     async def get_random_user_agent(self):
@@ -256,7 +267,7 @@ class YMapsParse:
                 while self.ws.max_row < self.max_num_firm:
                     if self.ws.max_row - 1 != 0:
                         print(f"Записанных фирм в xlsx: {self.ws.max_row - 1}")
-                    await self.__get_links()  # Ищем ссылки и данные организаций
+                    await self.__get_links(update_callback)  # Ищем ссылки и данные организаций
                     await self.data_output_to_xlsx(self.list_of_companies, update_callback)  # Записываем данные в Excel
                     # Имитация просмотра страницы
                     await self.random_delay(1, 2)
