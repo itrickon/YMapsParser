@@ -20,6 +20,10 @@ class YMapsParse:
         self.list_of_companies = []  # сюда добавляем списки из __get_firm_data, чтобы потом ввести их в xlsx
         self.start_row = 2
         self.gui_url_work = gui_url_work
+        self.page2 = None
+        self.page = None
+        self.context = None
+        self.stop_requested = False
 
         self.warning_message()
 
@@ -46,7 +50,7 @@ class YMapsParse:
             # Если русское слово - переводим
             self.translator = GoogleTranslator(source="ru", target="en")
             a = await asyncio.to_thread(self.translator.translate, city)
-            a = "-".join(a.split())
+            a = "-".join(a.split()) 
             return a.lower()
 
     async def __get_links(self, update_callback=None) -> List[str]:
@@ -91,6 +95,8 @@ class YMapsParse:
             )
 
             for link in links[:self.max_num_firm]:
+                if self.stop_requested:
+                    break
                 link = link.rstrip("/gallery/")
                 firm_data = await self.__get_firm_data(url=link)
 
@@ -106,80 +112,87 @@ class YMapsParse:
 
     async def __get_firm_data(self, url: str):
         """Берем данные фирмы: название, телефон, сайт"""
+        if self.stop_requested:
+            return []
         self.page2 = await self.context.new_page()  # Создаем новую страницу
-        await self.page2.goto(url=url)  # Переходим на неё
-
-        # ИНИЦИАЛИЗИРУЕМ ВСЕ ПЕРЕМЕННЫЕ ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ ДО ПОИСКА
-        name_firm_text = "Название не найдено"
-        address_text = "Адрес не указан"
-        phone_text = "Телефон не найден"
-        site_text = "Нет ссылки на сайт"
-
-        # Название компании
         try:
-            name_firm_element = await self.page2.query_selector(".orgpage-header-view__header")
-            if name_firm_element:
-                name_firm_text = await name_firm_element.text_content()
-                name_firm_text = name_firm_text.strip()
-        except Exception as e:
-            print(f"Ошибка при получении названия: {e}")
+            await self.page2.goto(url=url)  # Переходим на неё
+            if self.stop_requested:
+                return []
+            await self.random_delay(0.5, 1)
 
-        # Адрес
-        try:
-            address_element = await self.page2.query_selector(".business-contacts-view__address-link")
-            if address_element:
-                address_text = await address_element.text_content()
-                address_text = address_text.strip()
-        except Exception as e:
-            print(f"Ошибка при получении адреса: {e}")
-
-        # Категории
-        try:
-            category_element = await self.page2.query_selector_all(".breadcrumbs-view__breadcrumb")
-            if category_element:
-                category_text = await category_element[-1].text_content()
-                category_text = category_text.strip()
-            else:
-                self.phone_text = "---"
-        except Exception as e:
-            print(f"Ошибка при получении категории: {e}")
-
-        # Номер телефона
-        try:
-            phone_container = await self.page2.query_selector(".card-phones-view__number")
-            if phone_container:
-                phone_text = await phone_container.text_content()
-                self.phone_text = phone_text.rstrip("Показать телефон")
-            else:
-                self.phone_text = "---"
-        except Exception as e:
-            print(f"Ошибка при получении телефона: {e}")
-            self.phone_text = "---"
-
-        # Название сайта
-        try:
-            site_element = await self.page2.query_selector(".business-urls-view__text")
-            if site_element:
-                site_text = await site_element.text_content()
-                self.site_text = site_text.strip()
-            else:
-                self.site_text = "Нет ссылки на сайт"
-        except Exception as e:
-            print(f"Ошибка при получении сайта: {e}")
+            # ИНИЦИАЛИЗИРУЕМ ВСЕ ПЕРЕМЕННЫЕ ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ ДО ПОИСКА
+            name_firm_text = "Название не найдено"
+            address_text = "Адрес не указан"
+            phone_text = "Телефон не найден"
             site_text = "Нет ссылки на сайт"
 
-        await self.page2.close()
+            # Название компании
+            try:
+                name_firm_element = await self.page2.query_selector(".orgpage-header-view__header")
+                if name_firm_element:
+                    name_firm_text = await name_firm_element.text_content()
+                    name_firm_text = name_firm_text.strip()
+            except Exception as e:
+                print(f"Ошибка при получении названия: {e}")
 
-        # Возвращаем ВСЕ переменные (они теперь точно определены)
-        return [
-            url,
-            name_firm_text,
-            category_text,
-            address_text,
-            self.phone_text,
-            self.site_text,
-            "-",
-        ]
+            # Адрес
+            try:
+                address_element = await self.page2.query_selector(".business-contacts-view__address-link")
+                if address_element:
+                    address_text = await address_element.text_content()
+                    address_text = address_text.strip()
+            except Exception as e:
+                print(f"Ошибка при получении адреса: {e}")
+
+            # Категории
+            try:
+                category_element = await self.page2.query_selector_all(".breadcrumbs-view__breadcrumb")
+                if category_element:
+                    category_text = await category_element[-1].text_content()
+                    category_text = category_text.strip()
+                else:
+                    self.phone_text = "---"
+            except Exception as e:
+                print(f"Ошибка при получении категории: {e}")
+
+            # Номер телефона
+            try:
+                phone_container = await self.page2.query_selector(".card-phones-view__number")
+                if phone_container:
+                    phone_text = await phone_container.text_content()
+                    self.phone_text = phone_text.rstrip("Показать телефон")
+                else:
+                    self.phone_text = "---"
+            except Exception as e:
+                print(f"Ошибка при получении телефона: {e}")
+                self.phone_text = "---"
+
+            # Название сайта
+            try:
+                site_element = await self.page2.query_selector(".business-urls-view__text")
+                if site_element:
+                    site_text = await site_element.text_content()
+                    self.site_text = site_text.strip()
+                else:
+                    self.site_text = "Нет ссылки на сайт"
+            except Exception as e:
+                print(f"Ошибка при получении сайта: {e}")
+                site_text = "Нет ссылки на сайт"
+            await self.random_delay(0.5, 1)
+
+            # Возвращаем ВСЕ переменные (они теперь точно определены)
+            return [
+                url,
+                name_firm_text,
+                category_text,
+                address_text,
+                self.phone_text,
+                self.site_text,
+                "-",
+            ]
+        finally: 
+            await self.page2.close()
 
     async def check_xlsx(self, update_callback):
         """Функция для создания заготовки под xlsx файл"""
@@ -220,6 +233,21 @@ class YMapsParse:
         self.wb.save(self.data_saving)
         firm_data_list = list(map(lambda x: x[1:-1], self.list_of_companies))
         print(f"Записано {len(get_firm_data)} строк в файл data.xlsx")
+        
+    async def stop(self):
+        self.stop_requested = True
+
+        try:
+            if self.page and not self.page.is_closed():
+                await self.page.close()
+        except:
+            pass
+
+        try:
+            if self.context:
+                await self.context.close()
+        except:
+            pass
 
     async def get_random_user_agent(self):
         """Скрываем автоматизацию с помощью захода с разных систем"""
@@ -265,6 +293,9 @@ class YMapsParse:
 
                 # Собираем данные с задержками
                 while self.ws.max_row < self.max_num_firm:
+                    if self.stop_requested:
+                        print("Парсинг остановлен")
+                        break
                     if self.ws.max_row - 1 != 0:
                         print(f"Записанных фирм в xlsx: {self.ws.max_row - 1}")
                     await self.__get_links(update_callback)  # Ищем ссылки и данные организаций

@@ -27,7 +27,7 @@ class MainApplication(ttk.Frame):
             self.parent.iconbitmap("static/yandex_map_pic.ico")
         except Exception as e:
             print(f"Cannot load icon: {e}")
-
+            
         self.interface_style()
         self.pack(fill=tk.BOTH, expand=True)
         self.create_widgets()
@@ -405,26 +405,17 @@ class MainApplication(ttk.Frame):
         self.after(0, update)
 
     def stop_parsing(self):
-        """Остановка парсинга"""
         if not self.is_parsing:
             self.log_message("Парсинг не выполняется!")
-            self.status_var.set("Парсинг не выполняется!")
             return
 
-        # Закрытие страницы в отдельном потоке
-        time.sleep(1)
-        if hasattr(self, "parser_instance"):
-            threading.Thread(target=lambda: (
-                    asyncio.run(self.parser_instance.page.close())
-                    if hasattr(self.parser_instance, "page")
-                    else None
-                ),
-                daemon=True,
-            ).start()
+        self.log_message("Остановка парсинга...")
+        self.status_var.set("Остановка парсинга...")
+
+        if self.parser_instance:
+            self.parser_instance.stop_requested = True
 
         self.is_parsing = False
-        self.status_var.set("Парсинг остановлен")
-        self.log_message("Парсинг остановлен пользователем")
 
     def clear_log(self):
         """Очистка лога"""
@@ -615,7 +606,7 @@ class MainApplication(ttk.Frame):
         about_text = [
             "       YMapsParser\n\n",
             "  Данный инструмент предназначен для сбора открытой информации в образовательных и исследовательских целях.\n\n",
-            "    Версия 0.0.5\n\n",
+            "    Версия 0.0.7\n\n",
             "  Режимы работы:\n",
             "    1. Парсер по ключу - поиск организаций по ключевому слову и городу\n",
             "    2. Парсер по URL - парсинг конкретной страницы поиска YMaps\n\n",
