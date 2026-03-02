@@ -116,7 +116,7 @@ class YMapsParse:
             return []
         self.page2 = await self.context.new_page()  # Создаем новую страницу
         try:
-            await self.page2.goto(url=url)  # Переходим на неё
+            await self.page2.goto(url=url, timeout=30000,)  # Переходим на неё
             if self.stop_requested:
                 return []
             await self.random_delay(0.5, 1)
@@ -179,7 +179,7 @@ class YMapsParse:
             except Exception as e:
                 print(f"Ошибка при получении сайта: {e}")
                 site_text = "Нет ссылки на сайт"
-            await self.random_delay(0.5, 1)
+            await self.random_delay(0.8, 1.3)
 
             # Возвращаем ВСЕ переменные (они теперь точно определены)
             return [
@@ -282,12 +282,14 @@ class YMapsParse:
                     await self.page.goto(
                         self.keyword,
                         wait_until="domcontentloaded",
+                        timeout=30000,
                     )  # Переходим по адресу с переведенным городом
                 else:
                     await self.page.goto(
                         f"https://yandex.ru/maps/1/a/search/{self.city}, {self.keyword}",
                         wait_until="domcontentloaded",
-                    )  # Переходим по адресу с переведенным городом
+                        timeout=30000,
+                    )
 
                 await self.random_delay(3, 4)  # Задержка для загрузки страницы
 
@@ -302,19 +304,6 @@ class YMapsParse:
                     await self.data_output_to_xlsx(self.list_of_companies, update_callback)  # Записываем данные в Excel
                     # Имитация просмотра страницы
                     await self.random_delay(1, 2)
-
-                    # Переход на следующую страницу с проверкой
-                    next_button = await self.page.query_selector('[style="transform: rotate(-90deg);"]')
-                    if next_button:
-                        color = await next_button.evaluate(
-                            """el => window.getComputedStyle(el).color"""
-                        )
-                    if next_button and color == "rgb(0, 114, 206)":
-                        await self.random_delay(1, 2)
-                        await next_button.click()
-                        await self.random_delay(3, 4.5)  # Ждем загрузки следующей страницы
-                    else:
-                        break  # Больше нет страниц
                 else:
                     if self.page2:
                         await self.page2.close()
@@ -331,7 +320,7 @@ class YMapsParse:
 
 async def main():
     parser = YMapsParse(
-        keyword="Велопрокат", city="Самара", max_num_firm=5, gui_url_work=False
+        keyword="Одежда", city="Самара", max_num_firm=50, gui_url_work=False
     )
     await parser.parse_main()
 

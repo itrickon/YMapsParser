@@ -14,6 +14,7 @@ from deep_translator import GoogleTranslator
 from tkinter import ttk, messagebox, filedialog, Toplevel, Text
 from Main_YMaps import YMapsParse
 from async_runner import AsyncParserRunner
+from updater import AutoUpdater, check_and_notify
 
 
 class MainApplication(ttk.Frame):
@@ -60,6 +61,10 @@ class MainApplication(ttk.Frame):
         parse_menu.add_command(label="Выход", command=self.btn_exit)
 
         menubar.add_command(label="Экспорт", command=self.file_to_path)
+
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Инструменты", menu=tools_menu)
+        tools_menu.add_command(label="Проверить обновления", command=self.check_updates)
 
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Справка", menu=help_menu)
@@ -656,6 +661,72 @@ class MainApplication(ttk.Frame):
                 self.stop_parsing()
             self.parent.quit()
 
+    def check_updates(self, auto=False):
+        """Проверка и установка обновлений"""
+        def update_progress(stage, current, total):
+            stage_names = {
+                "check": "Проверка...",
+                "download": "Загрузка...",
+                "extract": "Распаковка...",
+                "apply": "Применение..."
+            }
+            percentage = int((current / total * 100) if total > 0 else 0)
+            self.status_var.set(f"{stage_names.get(stage, stage)} {percentage}%")
+            self.parent.update_idletasks()
+        
+        try:
+            self.status_var.set("Проверка обновлений...")
+            has_update, message, new_version = check_and_notify()
+            
+            if has_update:
+                if auto:
+                    # Автообновление без подтверждения
+                    result = messagebox.askyesnocancel(
+                        "Доступно обновление",
+                        f"{message}\n\nЗагрузить и установить?",
+                        icon=messagebox.INFO
+                    )
+                    if result is False:  # Отмена
+                        self.status_var.set("Обновление отменено")
+                        return
+                else:
+                    result = messagebox.askyesno(
+                        "Доступно обновление",
+                        f"{message}\n\nЗагрузить и установить?",
+                        icon=messagebox.INFO
+                    )
+                    if not result:
+                        self.status_var.set("Обновление отменено")
+                        return
+                
+                # Запуск обновления
+                updater = AutoUpdater()
+                success = updater.update(progress_callback=update_progress)
+                
+                if success:
+                    self.status_var.set(f"Обновление до {new_version} успешно!")
+                    messagebox.showinfo(
+                        "Обновление завершено",
+                        f"Обновление до версии {new_version} успешно применено!\n"
+                        "Перезапустите приложение для применения изменений.",
+                        icon=messagebox.INFO
+                    )
+                else:
+                    self.status_var.set("Ошибка обновления")
+                    messagebox.showerror(
+                        "Ошибка",
+                        "Не удалось применить обновление. Проверьте консоль для деталей."
+                    )
+            else:
+                if not auto:
+                    messagebox.showinfo("Обновления", message, icon=messagebox.INFO)
+                self.status_var.set("Установлена последняя версия")
+                
+        except Exception as e:
+            self.status_var.set(f"Ошибка: {e}")
+            if not auto:
+                messagebox.showerror("Ошибка", f"Ошибка проверки обновлений:\n{e}")
+
     def create_status_bar(self):
         """Создание строки состояния"""
         self.status_var = tk.StringVar()
@@ -682,6 +753,10 @@ def main():
     """Точка входа в приложение"""
     root = tk.Tk()
     app = MainApplication(root)
+    
+    # Автопроверка обновлений после запуска GUI
+    root.after(1000, lambda: app.check_updates(auto=True))
+    
     root.mainloop()
 
 
