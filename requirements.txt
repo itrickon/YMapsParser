@@ -2,4 +2,3 @@ playwright>=1.40.0
 openpyxl>=3.1.2
 deep_translator>=1.11.4
 sv-ttk>=2.6.0
-requests>=2.31.0

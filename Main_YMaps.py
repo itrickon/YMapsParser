@@ -100,9 +100,10 @@ class YMapsParse:
                 link = link.rstrip("/gallery/")
                 firm_data = await self.__get_firm_data(url=link)
 
-                if self.phone_text != "---" or (
-                    self.phone_text == "---" and self.site_text != "Нет ссылки на сайт"
-                ):
+                phone = firm_data[4] if len(firm_data) > 4 else "---"
+                site = firm_data[5] if len(firm_data) > 5 else "Нет ссылки на сайт"
+                
+                if phone != "---" or (phone == "---" and site != "Нет ссылки на сайт"):
                     self.list_of_companies.append(firm_data)
                 if update_callback:
                         update_callback(firm_data[1:-1])
@@ -152,30 +153,31 @@ class YMapsParse:
                     category_text = await category_element[-1].text_content()
                     category_text = category_text.strip()
                 else:
-                    self.phone_text = "---"
+                    category_text = "Категория не указана"
             except Exception as e:
                 print(f"Ошибка при получении категории: {e}")
+                category_text = "Категория не указана"
 
             # Номер телефона
             try:
                 phone_container = await self.page2.query_selector(".card-phones-view__number")
                 if phone_container:
                     phone_text = await phone_container.text_content()
-                    self.phone_text = phone_text.rstrip("Показать телефон")
+                    phone_text = phone_text.rstrip("Показать телефон")
                 else:
-                    self.phone_text = "---"
+                    phone_text = "---"
             except Exception as e:
                 print(f"Ошибка при получении телефона: {e}")
-                self.phone_text = "---"
+                phone_text = "---"
 
             # Название сайта
             try:
                 site_element = await self.page2.query_selector(".business-urls-view__text")
                 if site_element:
                     site_text = await site_element.text_content()
-                    self.site_text = site_text.strip()
+                    site_text = site_text.strip()
                 else:
-                    self.site_text = "Нет ссылки на сайт"
+                    site_text = "Нет ссылки на сайт"
             except Exception as e:
                 print(f"Ошибка при получении сайта: {e}")
                 site_text = "Нет ссылки на сайт"
@@ -187,8 +189,8 @@ class YMapsParse:
                 name_firm_text,
                 category_text,
                 address_text,
-                self.phone_text,
-                self.site_text,
+                phone_text,
+                site_text,
                 "-",
             ]
         finally: 
