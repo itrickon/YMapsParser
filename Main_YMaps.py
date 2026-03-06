@@ -296,18 +296,20 @@ class YMapsParse:
                 await self.random_delay(3, 4)  # Задержка для загрузки страницы
 
                 # Собираем данные с задержками
-                while self.ws.max_row < self.max_num_firm:
-                    if self.stop_requested:
-                        print("Парсинг остановлен")
-                        break
-                    if self.ws.max_row - 1 != 0:
-                        print(f"Записанных фирм в xlsx: {self.ws.max_row - 1}")
-                    await self.__get_links(update_callback)  # Ищем ссылки и данные организаций
-                    await self.data_output_to_xlsx(self.list_of_companies, update_callback)  # Записываем данные в Excel
-                    # Имитация просмотра страницы
-                    await self.random_delay(1, 2)
-                else:
-                    if self.page2:
+                try:
+                    while self.ws.max_row < self.max_num_firm:
+                        if self.stop_requested:
+                            print("Парсинг остановлен")
+                            break
+                        if self.ws.max_row - 1 != 0:
+                            print(f"Записанных фирм в xlsx: {self.ws.max_row - 1}")
+                        await self.__get_links(update_callback)  # Ищем ссылки и данные организаций
+                        await self.data_output_to_xlsx(self.list_of_companies, update_callback)  # Записываем данные в Excel
+                        # Имитация просмотра страницы
+                        await self.random_delay(1, 2)
+                finally:
+                    # Закрываем ресурсы в любом случае (успех, ошибка или остановка)
+                    if self.page2 and not self.page2.is_closed():
                         await self.page2.close()
                     await browser.close()
 

@@ -209,6 +209,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Cline rules
+.clinerules*
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

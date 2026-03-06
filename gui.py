@@ -9,7 +9,6 @@ import threading
 import webbrowser
 import tkinter as tk
 from urllib.parse import unquote
-from tkinter import ttk, messagebox
 from deep_translator import GoogleTranslator
 from tkinter import ttk, messagebox, filedialog, Toplevel, Text
 from Main_YMaps import YMapsParse
@@ -22,7 +21,7 @@ class MainApplication(ttk.Frame):
         self.parent = parent
         self.parent.title("YMapsParser")
         self.parent.geometry("930x700")
-        self.source_file_path = "ymaps_parse_results/yandex_map_pic.xlsx"
+        self.source_file_path = "ymaps_parse_results/ymaps_data.xlsx"
         try:
             self.parent.iconbitmap("static/yandex_map_pic.ico")
         except Exception as e:
