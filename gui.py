@@ -37,6 +37,7 @@ class MainApplication(ttk.Frame):
         self.is_parsing = False
         self.parser_thread = None
         self.parser_instance = None
+        self._parsing_lock = threading.Lock()  # Блокировка для защиты от гонок потоков
 
     def interface_style(self):
         sv_ttk.set_theme("light")
@@ -265,14 +266,15 @@ class MainApplication(ttk.Frame):
 
     def generate_url(self):
         """Генерация URL на основе ключевого слова и города"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         keyword = self.keyword_var.get().strip()
-        city = loop.run_until_complete(self.translate_text(self.city_var.get().strip()))
+        city_raw = self.city_var.get().strip()
 
-        if not keyword or not city:
+        if not keyword or not city_raw:
             messagebox.showwarning("Предупреждение", "Введите ключевое слово и город!")
             return
+
+        # Запускаем асинхронную функцию перевода в отдельном потоке
+        city = self._run_async_translate(city_raw)
 
         generated_url = f"https://yandex.ru/maps/1/a/search/{city},{keyword}"
 
@@ -287,12 +289,36 @@ class MainApplication(ttk.Frame):
             self.toggle_parser_mode()
         self.status_var.set("URL сгенерирован")
 
+    def _run_async_translate(self, city):
+        """Запуск асинхронного перевода в отдельном потоке"""
+        result = {"city": None, "error": None}
+
+        def run_translate():
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                result["city"] = loop.run_until_complete(self.translate_text(city))
+            except Exception as e:
+                result["error"] = str(e)
+            finally:
+                loop.close()
+
+        thread = threading.Thread(target=run_translate, daemon=True)
+        thread.start()
+        thread.join()
+
+        if result["error"]:
+            raise RuntimeError(f"Ошибка перевода: {result['error']}")
+        return result["city"]
+
     def run_parsing(self):
         """Запуск парсинга в зависимости от выбранного режима"""
-        if self.is_parsing:
-            messagebox.showwarning("Предупреждение", "Парсинг уже выполняется!")
-            return
-        self.is_parsing = True
+        with self._parsing_lock:
+            if self.is_parsing:
+                self.after(0, lambda: messagebox.showwarning("Предупреждение", "Парсинг уже выполняется!"))
+                return
+            self.is_parsing = True
+        
         if self.parser_mode_key.get() == "keyword":
             self.run_keyword_parsing()
         else:
@@ -384,7 +410,8 @@ class MainApplication(ttk.Frame):
         """Вызывается при завершении парсинга (успешном или с ошибкой)"""
 
         def update():
-            self.is_parsing = False
+            with self._parsing_lock:
+                self.is_parsing = False
             if flag:
                 self.status_var.set("Парсинг успешно завершен")
                 self.log_message("Парсинг успешно завершен")
@@ -405,17 +432,17 @@ class MainApplication(ttk.Frame):
         self.after(0, update)
 
     def stop_parsing(self):
-        if not self.is_parsing:
-            self.log_message("Парсинг не выполняется!")
-            return
+        with self._parsing_lock:
+            if not self.is_parsing:
+                self.log_message("Парсинг не выполняется!")
+                return
+            self.is_parsing = False
 
         self.log_message("Остановка парсинга...")
         self.status_var.set("Остановка парсинга...")
 
         if self.parser_instance:
             self.parser_instance.stop_requested = True
-
-        self.is_parsing = False
 
     def clear_log(self):
         """Очистка лога"""
@@ -606,7 +633,7 @@ class MainApplication(ttk.Frame):
         about_text = [
             "       YMapsParser\n\n",
             "  Данный инструмент предназначен для сбора открытой информации в образовательных и исследовательских целях.\n\n",
-            "    Версия 0.0.7\n\n",
+            "    Версия 0.1.1\n\n",
             "  Режимы работы:\n",
             "    1. Парсер по ключу - поиск организаций по ключевому слову и городу\n",
             "    2. Парсер по URL - парсинг конкретной страницы поиска YMaps\n\n",
