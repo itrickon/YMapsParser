@@ -23,7 +23,10 @@ class MainApplication(ttk.Frame):
         self.parent.geometry("930x700")
         self.source_file_path = "ymaps_parse_results/ymaps_data.xlsx"
         try:
-            self.parent.iconbitmap("static/yandex_map_pic.ico")
+            # Используем абсолютный путь
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            icon_path = os.path.join(script_dir, "static", "yandex_map_pic.ico")
+            self.parent.iconbitmap(icon_path)
         except Exception as e:
             print(f"Cannot load icon: {e}")
             

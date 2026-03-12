@@ -25,6 +25,90 @@
 - Python 3.11 или выше
 - Подключение к интернету
 
+## Docker
+
+### Быстрый старт
+
+**Сборка образа:**
+```bash
+docker build -t ymaps-parser .
+```
+
+**Запуск GUI:**
+
+| Терминал | Команда |
+|----------|---------|
+| **PowerShell** | `docker run -it --rm -e DISPLAY=host.docker.internal:0 -v "${PWD}\ymaps_parse_results:/app/ymaps_parse_results" ymaps-parser` |
+| **Command Prompt** | `docker run -it --rm -e DISPLAY=host.docker.internal:0 -v "%cd%\ymaps_parse_results:/app/ymaps_parse_results" ymaps-parser` |
+| **Универсально** | `docker run -it --rm -e DISPLAY=host.docker.internal:0 -v "c:\путь\к\проекту\ymaps_parse_results:/app/ymaps_parse_results" ymaps-parser` |
+
+**Через docker-compose:**
+```bash
+docker-compose up --build
+```
+
+### Запуск по платформам
+
+#### Windows
+
+1. **Установите X-сервер:**
+   - [VcXsrv](https://sourceforge.net/projects/vcxsrv/) (рекомендуется) или [Xming](https://sourceforge.net/projects/xming/)
+   
+2. **Запустите XLaunch:**
+   - Multiple windows → Next
+   - Start no client → Next
+   - ✓ **Disable access control** → Next
+   - Finish
+
+3. **Запустите контейнер:**
+   ```cmd
+   docker-compose up
+   ```
+
+#### Linux
+
+```bash
+docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v ${PWD}/ymaps_parse_results:/app/ymaps_parse_results ymaps-parser
+```
+
+#### Mac
+
+1. Установите [XQuartz](https://www.xquartz.org/)
+2. Запустите XQuartz
+3. В настройках XQuartz: Preferences → Security → ✓ Allow connections from network clients
+4. Запустите:
+   ```bash
+   docker run -it --rm -e DISPLAY=host.docker.internal:0 -v ${PWD}/ymaps_parse_results:/app/ymaps_parse_results ymaps-parser
+   ```
+
+### Headless режим (без GUI)
+
+**Через docker run:**
+
+| Терминал | Команда |
+|----------|---------|
+| **PowerShell** | `docker run -it --rm -v "${PWD}\ymaps_parse_results:/app/ymaps_parse_results" ymaps-parser python Main_YMaps.py` |
+| **Command Prompt** | `docker run -it --rm -v "%cd%\ymaps_parse_results:/app/ymaps_parse_results" ymaps-parser python Main_YMaps.py` |
+
+**Через docker-compose:**
+
+Обновите `docker-compose.yml`:
+```yaml
+services:
+  ymaps-parser:
+    build: .
+    container_name: ymaps-parser
+    volumes:
+      - ./ymaps_parse_results:/app/ymaps_parse_results
+    command: python Main_YMaps.py  # Запуск без GUI
+```
+
+```bash
+docker-compose up --build
+```
+
+> Результаты сохраняются в папку `ymaps_parse_results/` на хосте.
+
 ## Установка
 
 ### Способ 1: Запуск через Python
